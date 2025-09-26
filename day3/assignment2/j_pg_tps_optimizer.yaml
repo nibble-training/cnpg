@@ -1,0 +1,55 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app: pg_tps_optimizer
+  generateName: pg-tps-opt-
+spec:
+  backoffLimit: 6
+  completionMode: NonIndexed
+  completions: 1
+  parallelism: 1
+  suspend: false
+  template:
+    spec:
+      dnsPolicy: ClusterFirst
+      restartPolicy: Never
+      containers:
+        - name: pg-tps-optimizer
+          command:
+            - /usr/local/bin/pg_tps_optimizer
+          image: mannemsolutions/pg_tps_optimizer:latest
+          imagePullPolicy: Always
+          resources:
+            requests:
+              memory: '150Mi'
+              cpu: '1'
+            limits:
+              memory: '300Mi'
+              cpu: '1'
+          env:
+            - name: PGTPSMAXWAIT
+              value: 10s
+            - name: PGTPSMINSAMPLES
+              value: '10'
+            - name: PGTPSRANGE
+              value: 1:1000
+            - name: PGTPSSPREAD
+              value: '10'
+            - name: PGHOST
+              value: example-1-rw
+            - name: PGDATABASE
+              value: app
+            - name: PGPORT
+              value: '5432'
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: example-1-app
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: example-1-app
