@@ -1,0 +1,13 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: example-1-one
+spec:
+  name: one
+  owner: app
+  cluster:
+    name: example-1
+  extensions:
+    - name: bloom
+      ensure: present
