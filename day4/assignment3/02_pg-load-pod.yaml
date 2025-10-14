@@ -1,0 +1,82 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  generateName: pg-load-
+  labels:
+    app: pg-load
+spec:
+  volumes:
+    # Een leeg volume dat bestaat zolang de Pod leeft
+    - name: shared-data
+      emptyDir: {}
+    - name: pg-dump-scripts
+      configMap:
+        name: pg-dump-scripts
+
+  containers:
+    # De "producer" container
+    - name: producer
+      image: python:3
+      command:
+        - '/bin/sh'
+        - '-c'
+      args:
+        - |
+          echo before pip
+          pip install azure-storage-blob
+          echo after pip
+          mkfifo ${LOCAL_PATH}
+          echo before load
+          python3 /scripts/download.py
+          echo after load
+      env:
+        - name: AZ_CONTAINERNAME
+          value: example-1
+        - name: LOCAL_PATH
+          value: /data/mypipe
+        - name: BLOB_NAME
+          value: pgdump.sql
+        - name: AZ_STORAGE_ACCOUNT_NAME
+          value: nblstorageaccount
+        - name: AZ_SAS_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: AZ_SAS_TOKEN
+              name: azure-creds
+      volumeMounts:
+        - name: shared-data
+          mountPath: /data
+        - name: pg-dump-scripts
+          mountPath: /scripts
+
+    # De "consumer sidecar" container
+    - name: producer
+      image: postgres:17
+      command:
+        - '/bin/sh'
+        - '-c'
+      args:
+        - |
+          cat /data/mypipe > /usr/lib/postgresql/17/bin/psql
+          echo after dump
+      env:
+        - name: PGHOST
+          value: example-1-rw
+        - name: PGDATABASE
+          value: app
+        - name: PGPORT
+          value: '5432'
+        - name: PGUSER
+          valueFrom:
+            secretKeyRef:
+              key: username
+              name: example-1-app
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: example-1-app
+      volumeMounts:
+        - name: shared-data
+          mountPath: /data
